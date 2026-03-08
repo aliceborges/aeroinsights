@@ -8,7 +8,6 @@ Pipeline de inteligencia analitica para dados de aviacao. O projeto processa reg
 aeroinsights/
     app.py                 # Dashboard interativo (Streamlit)
     build_database.py      # ETL que gera o banco SQLite
-    main.py                # Pipeline completo de analise e modelagem
     models.py              # Modelos SQLAlchemy e configuracao do banco
     requirements.txt
     aeroinsights.db        # Banco gerado pelo ETL
@@ -16,7 +15,6 @@ aeroinsights/
         airlines.csv       # Companhias aereas
         airports.csv       # Aeroportos (coordenadas, nome, IATA)
         flights.csv        # Registros de voos
-    results/               # Graficos gerados pelo pipeline
 ```
 
 ## Requisitos
@@ -32,15 +30,7 @@ pip install -r requirements.txt
 
 ## Uso
 
-### 1. Pipeline de analise
-
-Executa o fluxo completo: carga, limpeza, feature engineering, EDA, treinamento de modelos e clustering. Os graficos sao salvos em `results/`.
-
-```bash
-python main.py
-```
-
-### 2. Construcao do banco
+### 1. Construcao do banco
 
 Processa os CSVs e grava duas tabelas no SQLite (`aeroinsights.db`):
 
@@ -51,7 +41,7 @@ Processa os CSVs e grava duas tabelas no SQLite (`aeroinsights.db`):
 python build_database.py
 ```
 
-### 3. Dashboard
+### 2. Dashboard
 
 Requer que o banco ja esteja construido (passo anterior).
 
@@ -63,10 +53,9 @@ streamlit run app.py
 
 1. **Carga** -- merge de `flights.csv`, `airlines.csv` e `airports.csv`.
 2. **Limpeza** -- remocao de voos cancelados/desviados; imputacao de nulos pela mediana.
-3. **Feature engineering** -- estacao do ano por hemisferio, flag de voo madrugada (`IS_RED_EYE`), recuperacao de tempo em voo (`TIME_RECOVERY`).
-4. **EDA** -- mapa geografico de atrasos, sazonalidade, distribuicao de recuperacao de tempo.
-5. **Modelagem** -- Logistic Regression e Random Forest com balanceamento de classes; matriz de confusao salva em `results/`.
-6. **Clustering** -- K-Means (k=3) sobre volume de voos e atraso medio por aeroporto.
+3. **Feature engineering** -- estacao do ano calculada por hemisferio e mes.
+4. **Clustering** -- K-Means (k=3) sobre volume de voos e atraso medio por aeroporto.
+5. **Persistencia** -- tabelas `airport_data` e `flights_sample` gravadas no SQLite.
 
 ## Dashboard
 
@@ -93,8 +82,8 @@ A connection string e configurada na variavel `DATABASE_URL` em `models.py`.
 | Componente       | Biblioteca              |
 |------------------|-------------------------|
 | Manipulacao      | pandas                  |
-| Visualizacao     | matplotlib, seaborn, plotly |
-| Machine learning | scikit-learn            |
+| Visualizacao     | plotly                  |
+| Clustering       | scikit-learn            |
 | Dashboard        | streamlit               |
 | Banco de dados   | SQLite + SQLAlchemy     |
 
