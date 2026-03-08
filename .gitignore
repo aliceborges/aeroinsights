@@ -40,3 +40,4 @@ dist/
 results/*
 databases/*
 databases/flights.csv
+*.db
