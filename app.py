@@ -3,7 +3,7 @@ import plotly.express as px
 import streamlit as st
 from sqlalchemy import select
 
-from models import engine, AirportData, FlightSample
+from models import engine, AirportData, FlightSample, ModelMetrics, FeatureImportance, ConfusionMatrix
 
 st.set_page_config(page_title="AeroInsights Dashboard", layout="wide")
 
@@ -17,7 +17,7 @@ def load_data():
     Load airport and flight sample data from the database using SQLAlchemy.
 
     Returns:
-        tuple: DataFrames containing airports and flight samples
+        tuple: DataFrames containing airports, flight samples, and ML metrics
     """
     with engine.connect() as conn:
         airports = pd.read_sql(select(AirportData), conn)
@@ -30,11 +30,15 @@ def load_data():
             ),
             conn,
         )
-    return airports, samples
+        metrics = pd.read_sql(select(ModelMetrics), conn)
+        feat_imp = pd.read_sql(select(FeatureImportance), conn)
+        cm = pd.read_sql(select(ConfusionMatrix), conn)
+
+    return airports, samples, metrics, feat_imp, cm
 
 
 try:
-    airports_df, samples_df = load_data()
+    airports_df, samples_df, metrics_df, feat_imp_df, cm_df = load_data()
 
     st.subheader("Operational Summary")
     c1, c2, c3 = st.columns(3)
@@ -121,6 +125,35 @@ try:
         )
 
     st.info("Cluster Legend: Cluster 0: Small/Unstable | Cluster 1: Efficient | Cluster 2: Critical Hubs")
+
+    st.divider()
+    st.subheader("Supervised Learning: Delay Prediction (Random Forest)")
+    st.markdown("Predicting if a flight will be delayed (>15 min) based on season, airline, and distance.")
+
+    m_dict = dict(zip(metrics_df['Metric'], metrics_df['Value']))
+
+    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1.metric("Model Accuracy", f"{m_dict.get('Accuracy', 0):.1%}")
+    col_m2.metric("Precision (Delayed)", f"{m_dict.get('Precision', 0):.1%}")
+    col_m3.metric("Recall (Delayed)", f"{m_dict.get('Recall', 0):.1%}")
+
+    col_cm, col_fi = st.columns(2)
+
+    with col_cm:
+        st.markdown("**Confusion Matrix**")
+        cm_values = cm_df[['Predicted_OnTime', 'Predicted_Delayed']].values
+        fig_cm = px.imshow(
+            cm_values, text_auto=True, color_continuous_scale='Blues',
+            labels=dict(x="Predicted", y="Actual", color="Count"),
+            x=['On Time', 'Delayed'], y=['On Time', 'Delayed']
+        )
+        fig_cm.update_layout(margin={"r": 0, "t": 30, "l": 0, "b": 0}, height=350)
+        st.plotly_chart(fig_cm, use_container_width=True)
+
+    with col_fi:
+        st.markdown("**Top Feature Importances**")
+        feat_chart_data = feat_imp_df.rename(columns={'Importance': 'Weight'})
+        st.bar_chart(feat_chart_data, x='Feature', y='Weight', color='#8B5CF6', height=350)
 
 except Exception as e:
     st.error(f"Error loading dashboard: {e}")

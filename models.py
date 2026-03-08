@@ -35,6 +35,28 @@ class FlightSample(Base):
     MONTH = Column(Integer)
 
 
+class ModelMetrics(Base):
+    """Stores Random Forest Evaluation Metrics (Accuracy, Precision, Recall)."""
+    __tablename__ = "model_metrics"
+    Metric = Column(String, primary_key=True)
+    Value = Column(Float)
+
+
+class FeatureImportance(Base):
+    """Stores Top 10 Feature Importances from the Random Forest."""
+    __tablename__ = "feature_importance"
+    Feature = Column(String, primary_key=True)
+    Importance = Column(Float)
+
+
+class ConfusionMatrix(Base):
+    """Stores the Confusion Matrix results."""
+    __tablename__ = "confusion_matrix"
+    Actual = Column(String, primary_key=True)
+    Predicted_OnTime = Column(Integer)
+    Predicted_Delayed = Column(Integer)
+
+
 def init_db():
     """Create all tables in the database."""
     Base.metadata.create_all(engine)

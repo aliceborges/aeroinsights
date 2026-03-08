@@ -1,5 +1,8 @@
 import pandas as pd
 from sklearn.cluster import KMeans
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from models import engine, init_db
@@ -16,6 +19,7 @@ def build_backend():
     4. Engineers season features based on geographic latitude
     5. Performs K-Means clustering on airport statistics
     6. Saves processed data to SQLite database
+    7. Trains a Random Forest model and saves metrics
 
     The function creates two tables:
     - airport_data: Aggregated metrics and clusters for each airport
@@ -83,6 +87,34 @@ def build_backend():
         if_exists='replace',
         index=False
     )
+
+    ml_df = df.sample(n=min(100000, len(df)), random_state=42).copy()
+    ml_df['IS_DELAYED'] = (ml_df['ARRIVAL_DELAY'] > 15).astype(int)
+
+    feature_cols = ['MONTH', 'DAY_OF_WEEK', 'DISTANCE', 'AIRLINE_NAME', 'SEASON']
+    existing_cols = [c for c in feature_cols if c in ml_df.columns]
+
+    X = pd.get_dummies(ml_df[existing_cols], drop_first=True)
+    y = ml_df['IS_DELAYED']
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    rf_model = RandomForestClassifier(n_estimators=50, max_depth=10, random_state=42, class_weight='balanced', n_jobs=-1)
+    rf_model.fit(X_train, y_train)
+    preds = rf_model.predict(X_test)
+
+    pd.DataFrame({
+        'Metric': ['Accuracy', 'Precision', 'Recall'],
+        'Value': [accuracy_score(y_test, preds), precision_score(y_test, preds), recall_score(y_test, preds)]
+    }).to_sql('model_metrics', engine, if_exists='replace', index=False)
+
+    pd.DataFrame({'Feature': X.columns, 'Importance': rf_model.feature_importances_})\
+        .sort_values('Importance', ascending=False).head(10)\
+        .to_sql('feature_importance', engine, if_exists='replace', index=False)
+
+    cm = confusion_matrix(y_test, preds)
+    cm_df = pd.DataFrame(cm, columns=['Predicted_OnTime', 'Predicted_Delayed'], index=['Actual_OnTime', 'Actual_Delayed']).reset_index()
+    cm_df.rename(columns={'index': 'Actual'}).to_sql('confusion_matrix', engine, if_exists='replace', index=False)
 
 
 if __name__ == "__main__":
