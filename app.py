@@ -1,20 +1,11 @@
-import streamlit as st
 import pandas as pd
-import sqlite3
 import plotly.express as px
+import streamlit as st
+from sqlalchemy import select
+
+from models import engine, AirportData, FlightSample
 
 st.set_page_config(page_title="AeroInsights Dashboard", layout="wide")
-
-
-def get_db_connection():
-    """
-    Establish connection to the SQLite database.
-
-    Returns:
-        sqlite3.Connection: Database connection object
-    """
-    return sqlite3.connect('aeroinsights.db')
-
 
 st.title("AeroInsights: Aviation Intelligence")
 st.markdown("Interactive analysis of flight delays and airport segmentation.")
@@ -23,15 +14,22 @@ st.markdown("Interactive analysis of flight delays and airport segmentation.")
 @st.cache_data
 def load_data():
     """
-    Load airport and flight sample data from the database.
+    Load airport and flight sample data from the database using SQLAlchemy.
 
     Returns:
         tuple: DataFrames containing airports and flight samples
     """
-    conn = get_db_connection()
-    airports = pd.read_sql("SELECT * FROM airport_data", conn)
-    samples = pd.read_sql("SELECT * FROM flights_sample", conn)
-    conn.close()
+    with engine.connect() as conn:
+        airports = pd.read_sql(select(AirportData), conn)
+        samples = pd.read_sql(
+            select(
+                FlightSample.AIRLINE_NAME,
+                FlightSample.ARRIVAL_DELAY,
+                FlightSample.SEASON,
+                FlightSample.MONTH,
+            ),
+            conn,
+        )
     return airports, samples
 
 
@@ -107,7 +105,8 @@ try:
             'AVG_DELAY': 'Average Delay (min)',
             'CLUSTER': 'Cluster'
         })
-        st.scatter_chart(scatter_data, x='Flight Volume', y='Average Delay (min)', color='Cluster', size='Flight Volume')
+        st.scatter_chart(scatter_data, x='Flight Volume', y='Average Delay (min)', color='Cluster',
+                         size='Flight Volume')
 
     with tab_lista:
         st.dataframe(
@@ -126,4 +125,3 @@ try:
 except Exception as e:
     st.error(f"Error loading dashboard: {e}")
     st.info("Please check if 'aeroinsights.db' file exists in the directory.")
-

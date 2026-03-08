@@ -1,7 +1,8 @@
-import sqlite3
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+
+from models import engine, init_db
 
 
 def build_backend():
@@ -39,7 +40,6 @@ def build_backend():
     for col in ['ARRIVAL_DELAY', 'DEPARTURE_DELAY', 'LATITUDE', 'LONGITUDE']:
         df[col] = df[col].fillna(df[col].median())
 
-
     def get_season(row):
         m, lat = row['MONTH'], row['LATITUDE']
         if lat >= 0:
@@ -73,20 +73,17 @@ def build_backend():
     kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
     airport_stats['CLUSTER'] = kmeans.fit_predict(scaled)
 
-    conn = sqlite3.connect('aeroinsights.db')
-    airport_stats.to_sql('airport_data', conn, if_exists='replace', index=False)
+    init_db()
+
+    airport_stats.to_sql('airport_data', engine, if_exists='replace', index=False)
 
     df[['AIRLINE_NAME', 'ARRIVAL_DELAY', 'SEASON', 'MONTH']].sample(n=min(100000, len(df))).to_sql(
         'flights_sample',
-        conn,
+        engine,
         if_exists='replace',
         index=False
     )
 
-    conn.close()
-
 
 if __name__ == "__main__":
     build_backend()
-
-
